@@ -28,7 +28,7 @@ return {
         "Simbiotico",
         "mobiju",
         "gabpanda",
-        "ShuviDolaa"
+        "ShuviDolaa",
         "Danielfd3",
         "BoxType_V2",
         "0liIVeiRa",
