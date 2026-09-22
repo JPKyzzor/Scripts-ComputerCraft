@@ -30,7 +30,7 @@ return {
         "gabpanda",
         "ShuviDolaa"
         "Danielfd3",
-        "BoxType_V2"
+        "BoxType_V2",
         "0liIVeiRa",
         "GuilhermeRHS",
         "XIII_Thanatos",
