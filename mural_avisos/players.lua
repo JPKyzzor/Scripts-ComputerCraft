@@ -24,7 +24,7 @@ return {
         "DanielCh13",
         "EzoReijy",
         "PainTelhoLoiro",
-        "M4dspectre"
+        "M4dspectre",
         "Simbiotico",
         "mobiju",
         "gabpanda",
