@@ -29,6 +29,11 @@ Os dados criados pelo programa ficam no proprio ComputerCraft:
 
 Esses arquivos nao devem ser apagados se voce quiser preservar os avisos e o tempo offline.
 
+O quadro de moradores consulta o detector a cada 5 segundos. Os offline sao
+ordenados do logout mais recente para o mais antigo. Quando houver mais nomes
+do que cabem na tela, use o botao `PROXIMA` no canto inferior direito; apos
+cinco segundos sem clique, o quadro retorna automaticamente para a pagina 1.
+
 ## Desenvolvimento
 
 Os scripts usam somente APIs disponiveis no CC:Tweaked e nao dependem de bibliotecas Lua externas. Antes de mudar um script, confira as orientacoes em `AGENTS.md`, especialmente as regras de eficiencia para servidor.

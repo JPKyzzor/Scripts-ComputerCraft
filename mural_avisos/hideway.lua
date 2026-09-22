@@ -92,6 +92,11 @@ local segundosProximaPagina = INTERVALO_PAGINA
 -- Guarda desde quando cada morador foi visto offline nesta execucao.
 local offlineDesde = {}
 
+-- Estado independente do quadro de moradores (monitor_12).
+local paginaCidade = 1
+local paginasCidade = { {} }
+local botaoProximaCidade = nil
+
 
 -- =========================
 -- FUNCOES AUXILIARES
@@ -439,11 +444,7 @@ local function carregarOffline()
 end
 
 
-local function desenharCidade()
-    cidade.setTextScale(0.5)
-    cidade.setBackgroundColor(colors.black)
-    cidade.clear()
-
+local function atualizarDadosCidade()
     local jogadoresOnline =
         detector.getOnlinePlayers()
 
@@ -485,75 +486,100 @@ local function desenharCidade()
     end
 
 
-    local largura =
-        cidade.getSize()
+    -- O desligamento mais recente vem primeiro. Empates sao ordenados por nome
+    -- para que a lista continue previsivel.
+    table.sort(offline, function(a, b)
+        if a.desde == b.desde then
+            return a.nome < b.nome
+        end
 
+        return a.desde > b.desde
+    end)
+
+    local largura, altura = cidade.getSize()
+    local linhas = {
+        { texto = "ONLINE (" .. #online .. "/" .. #moradores .. ")", cor = colors.lime }
+    }
+
+    for _, nome in ipairs(online) do
+        table.insert(linhas, { texto = "- " .. nome, cor = colors.white })
+    end
+
+    table.insert(linhas, { texto = "", cor = colors.black })
+    table.insert(linhas, { texto = "OFFLINE (" .. #offline .. "/" .. #moradores .. ")", cor = colors.lightGray })
+
+    for _, jogador in ipairs(offline) do
+        table.insert(linhas, {
+            texto = "- " .. jogador.nome .. " - " .. formatarTempoOffline((agora - jogador.desde) / 1000),
+            cor = colors.gray
+        })
+    end
+
+    -- Linhas 1-2 sao o cabecalho; a ultima fica reservada para o botao.
+    local capacidade = math.max(1, altura - 4)
+    paginasCidade = {}
+
+    for indice, item in ipairs(linhas) do
+        local pagina = math.floor((indice - 1) / capacidade) + 1
+        paginasCidade[pagina] = paginasCidade[pagina] or {}
+        table.insert(paginasCidade[pagina], item)
+    end
+
+    if #paginasCidade == 0 then
+        paginasCidade = { {} }
+    end
+
+    if paginaCidade > #paginasCidade then
+        paginaCidade = 1
+    end
+end
+
+
+local function desenharCidade()
+    cidade.setTextScale(0.5)
+    cidade.setBackgroundColor(colors.black)
+    cidade.clear()
+
+    local largura, altura = cidade.getSize()
     local titulo = "HIDEWAY CITY"
+    local paginaTexto = "Pagina " .. paginaCidade .. "/" .. #paginasCidade
 
-    local xTitulo =
-        math.floor((largura - #titulo) / 2) + 1
-
-
-    cidade.setCursorPos(xTitulo, 1)
+    cidade.setCursorPos(math.floor((largura - #titulo) / 2) + 1, 1)
     cidade.setTextColor(colors.yellow)
     cidade.write(titulo)
 
+    cidade.setCursorPos(largura - #paginaTexto + 1, 1)
+    cidade.setTextColor(colors.lightGray)
+    cidade.write(paginaTexto)
 
     cidade.setCursorPos(1, 2)
     cidade.setTextColor(colors.gray)
     cidade.write(string.rep("-", largura))
 
-
-    cidade.setCursorPos(1, 4)
-    cidade.setTextColor(colors.lime)
-
-    cidade.write(
-        "Moradores online: "
-        .. #online
-        .. " / "
-        .. #moradores
-    )
-
-
-    local linha = 6
-
-    cidade.setTextColor(colors.white)
-
-    for _, nome in ipairs(online) do
+    local linha = 4
+    for _, item in ipairs(paginasCidade[paginaCidade]) do
         cidade.setCursorPos(2, linha)
-        cidade.write("- " .. nome)
-
+        cidade.setTextColor(item.cor)
+        cidade.write(item.texto:sub(1, largura - 1))
         linha = linha + 1
     end
 
+    botaoProximaCidade = nil
+    if #paginasCidade > 1 then
+        local textoBotao = "[ PROXIMA > ]"
+        local inicio = largura - #textoBotao + 1
 
-    linha = linha + 1
+        cidade.setCursorPos(inicio, altura)
+        cidade.setTextColor(colors.black)
+        cidade.setBackgroundColor(colors.lime)
+        cidade.write(textoBotao)
+        cidade.setBackgroundColor(colors.black)
 
-    cidade.setCursorPos(1, linha)
-    cidade.setTextColor(colors.lightGray)
-
-    cidade.write(
-        "Moradores offline: "
-        .. #offline
-        .. " / "
-        .. #moradores
-    )
-
-
-    linha = linha + 2
-
-    cidade.setTextColor(colors.gray)
-
-    for _, jogador in ipairs(offline) do
-        cidade.setCursorPos(2, linha)
-        cidade.write(
-            "- "
-            .. jogador.nome
-            .. " - "
-            .. formatarTempoOffline((agora - jogador.desde) / 1000)
-        )
-
-        linha = linha + 1
+        botaoProximaCidade = {
+            x1 = inicio,
+            x2 = largura,
+            y = altura
+        }
     end
 end
 
@@ -933,9 +959,46 @@ end
 -- =========================
 
 local function atualizarPlayers()
+    local timerAtualizacao = os.startTimer(5)
+    local timerInatividade = nil
+
     while true do
-        desenharCidade()
-        sleep(5)
+        local evento, lado, x, y = os.pullEvent()
+
+        if evento == "timer" and lado == timerAtualizacao then
+            atualizarDadosCidade()
+            desenharCidade()
+            timerAtualizacao = os.startTimer(5)
+
+        elseif evento == "timer" and lado == timerInatividade then
+            timerInatividade = nil
+
+            if paginaCidade ~= 1 then
+                paginaCidade = 1
+                desenharCidade()
+            end
+
+        elseif evento == "monitor_touch" and lado == "monitor_12" then
+            if
+                botaoProximaCidade
+                and y == botaoProximaCidade.y
+                and x >= botaoProximaCidade.x1
+                and x <= botaoProximaCidade.x2
+            then
+                paginaCidade = paginaCidade + 1
+
+                if paginaCidade > #paginasCidade then
+                    paginaCidade = 1
+                end
+
+                if timerInatividade then
+                    os.cancelTimer(timerInatividade)
+                end
+
+                timerInatividade = os.startTimer(5)
+                desenharCidade()
+            end
+        end
     end
 end
 
@@ -978,6 +1041,7 @@ carregarDados()
 carregarOffline()
 
 desenharMural()
+atualizarDadosCidade()
 desenharCidade()
 desenharComandos()
 
